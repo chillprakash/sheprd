@@ -192,6 +192,9 @@ impl SheprdWindow {
                     .flex_none()
                     .text_color(rgb(theme.foreground)),
             )
+            .when_some(account_label(reading), |segment, label| {
+                segment.child(div().flex_none().text_color(rgb(theme.muted)).child(label))
+            })
             .child(
                 canvas(|_, _, _| (), move |area, _, _, _| painted.set(area))
                     .absolute()
@@ -277,6 +280,20 @@ impl SheprdWindow {
 
 /// The [`BAR_WINDOWS`] windows closest to their limits, in report order so
 /// the session window keeps its place before the weekly one.
+/// Which account a second slot of a provider shows, beside its icon: the
+/// other Claude account's alias, else its email. Other providers show none.
+fn account_label(reading: &Reading) -> Option<SharedString> {
+    if reading.provider.id() != "claudeother" {
+        return None;
+    }
+    let account = &reading.report.as_ref()?.account;
+    account
+        .plan
+        .as_ref()
+        .or(account.email.as_ref())
+        .map(|label| SharedString::from(label.as_str().to_owned()))
+}
+
 pub(super) fn bar_windows(windows: &[Limit]) -> impl Iterator<Item = &Limit> {
     let mut tightest: Vec<usize> = (0..windows.len()).collect();
     // Stable, so equally used windows keep report order.

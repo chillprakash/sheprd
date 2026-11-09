@@ -14,12 +14,16 @@ use crate::{
     },
 };
 use serde::Deserialize;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 /// cswap may fetch a few accounts' usage before it answers.
 const TIMEOUT: Duration = Duration::from_secs(15);
 /// The payload shape this reads; another one is a breaking change upstream.
 const SCHEMA: u32 = 1;
+/// A row whose optional `updatedAt` is older than this shows as last known.
+/// cswap leaves it out; a file the user keeps may refresh only while that
+/// account is in use.
+const FRESH: Duration = Duration::from_secs(15 * 60);
 
 /// The accounts cswap lists, split into the one Claude Code is signed in
 /// with and the rest.
@@ -99,12 +103,18 @@ pub(crate) fn parse(body: &str) -> Result<Accounts> {
             (Some(usage), _) => (Some(usage), false),
             (None, last_good) => (last_good, true),
         };
+        let aged = row
+            .updated_at
+            .as_ref()
+            .and_then(Timestamp::time)
+            .and_then(|time| SystemTime::now().duration_since(time).ok())
+            .is_some_and(|age| age > FRESH);
         let other = Other {
             email: row.email,
             alias: row.alias.filter(|alias| !alias.trim().is_empty()),
             disabled: row.disabled,
             status: row.usage_status,
-            stale: stale && usage.is_some(),
+            stale: (stale || aged) && usage.is_some(),
             windows: usage.map(Usage::windows).unwrap_or_default(),
         };
         if row.active && accounts.active.is_none() {
@@ -137,6 +147,8 @@ struct Row {
     usage_status: Status,
     usage: Option<Usage>,
     last_good_usage: Option<Usage>,
+    /// When the row's usage was read; absent from cswap's own payload.
+    updated_at: Option<Timestamp>,
 }
 
 #[derive(Deserialize)]

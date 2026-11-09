@@ -1,10 +1,13 @@
 //! Claude plan usage, read with Claude Code's own sign-in: the login keychain
 //! on a Mac, else `.credentials.json` in its config directory. Other accounts
-//! claude-swap manages are listed beneath it. A Claude Code pointed at another
+//! claude-swap manages, or the `accounts_file` setting lists, are listed
+//! beneath it. A Claude Code pointed at another
 //! endpoint, or signing in through an API key helper, is not using that
 //! sign-in, so it is left alone.
 
 pub(crate) mod cswap;
+mod listed;
+pub(crate) mod other;
 
 use crate::text::Text;
 use crate::{
@@ -12,7 +15,7 @@ use crate::{
     {
         model::{Account, Kind, Provider, Report, SESSION, Section, WEEK, Window, title_case},
         probe::{HostPath, Probe, Request, Secret},
-        service::{Meta, Service, Timestamp, json},
+        service::{Meta, Service, Setting, Timestamp, json},
     },
 };
 use cswap::Accounts;
@@ -41,7 +44,12 @@ pub(crate) struct SignIn {
 static META: Meta = Meta::new("claude", "Claude")
     .icon("icons/agent-claude.svg")
     .dashboard("https://claude.ai/settings/usage")
-    .status_page("https://status.anthropic.com");
+    .status_page("https://status.anthropic.com")
+    .settings(&[Setting::new(
+        "accounts_file",
+        &[],
+        "usage-claude-setting-accounts-file",
+    )]);
 
 impl Service for Claude {
     fn meta(&self) -> &'static Meta {
@@ -49,7 +57,7 @@ impl Service for Claude {
     }
 
     fn fetch(&self, probe: &mut Probe) -> Option<Result<Report>> {
-        let Accounts { active, others } = cswap::accounts(probe);
+        let Accounts { active, others } = cswap::accounts(probe).merge(listed::accounts(probe));
         let report = match signed_in(probe) {
             Some(report) => report,
             // Without Claude Code's OAuth sign-in, such as on an API-key
@@ -64,6 +72,19 @@ impl Service for Claude {
             )),
         };
         Some(report.map(|report| {
+            // A listed account may be the one already reported above it.
+            let main = report
+                .account
+                .email
+                .as_ref()
+                .map(|email| email.as_str().to_owned());
+            let others: Vec<_> = others
+                .into_iter()
+                .filter(|other| {
+                    main.as_deref()
+                        .is_none_or(|main| !other.email.eq_ignore_ascii_case(main))
+                })
+                .collect();
             if others.is_empty() {
                 report
             } else {

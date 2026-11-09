@@ -859,7 +859,7 @@ size = 12
 # --- usage providers: generated from each provider's settings ---
 #
 # Found from the agent's own sign-in on the host, with nothing to set:
-#   codex, claude, kiro, doubao, pi
+#   codex, kiro, doubao, pi
 #
 # OpenAI (openai)
 # [usage.providers.openai]
@@ -892,6 +892,24 @@ size = 12
 #   Optional. "v1" for the OpenAI-compatible v1 API, or a dated API version.
 #   Defaults to 2024-10-21.
 # api_version = ""  # or AZURE_OPENAI_API_VERSION
+#
+# Claude (claude)
+# [usage.providers.claude]
+#   Optional. A JSON file on the host, in the shape of `cswap list --json`,
+#   listing more Claude accounts to show beneath the signed-in one, e.g.
+#   "~/.cache/claude-accounts.json". A script that sees each account's limits,
+#   such as a Claude Code status line, can keep it, for accounts in other config
+#   directories or where the keychain cannot be read over SSH. Rows may add
+#   "updatedAt" (Unix seconds); one older than 15 minutes shows as last known.
+# accounts_file = ""
+#
+# Claude (other account) (claudeother)
+# [usage.providers.claudeother]
+#   Optional. The same accounts file as [usage.providers.claude] accounts_file,
+#   e.g. "~/.cache/claude-accounts.json". The first listed account that is not
+#   the active one shows here, in a slot of its own beside Claude's, with its
+#   alias as the label.
+# accounts_file = ""
 #
 # ClinePass (clinepass)
 # [usage.providers.clinepass]

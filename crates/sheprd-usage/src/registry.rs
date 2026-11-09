@@ -8,6 +8,7 @@ static SERVICES: &[&dyn Service] = &[
     &providers::openai::Openai,
     &providers::azureopenai::Azureopenai,
     &providers::claude::Claude,
+    &providers::claude::other::ClaudeOther,
     &providers::clinepass::Clinepass,
     &providers::cursor::Cursor,
     &providers::opencode::Opencode,
